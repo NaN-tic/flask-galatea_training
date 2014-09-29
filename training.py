@@ -25,7 +25,7 @@ TRAINING_TEMPLATE_FIELD_NAMES = [
     ]
 TRAINING_PRODUCT_FIELD_NAMES = [
     'training_start_date', 'training_end_date', 'training_registration',
-    'training_place.rec_name', 'training_seats', 'training_extra', 'template',
+    'training_place.rec_name', 'training_seats', 'training_note', 'template',
     'add_cart',
     ]
 
