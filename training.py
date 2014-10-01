@@ -30,6 +30,61 @@ TRAINING_PRODUCT_FIELD_NAMES = [
     'add_cart',
     ]
 
+@training.route("/<slug>.json", endpoint="training-json")
+@tryton.transaction()
+def training_detail_json(lang, slug):
+    '''Training JSON Details
+
+    slug param is a product slug or a product code
+    '''
+    websites = Website.search([
+        ('id', '=', GALATEA_WEBSITE),
+        ], limit=1)
+    if not websites:
+        abort(404)
+    website, = websites
+
+    products = Template.search([
+        ('esale_available', '=', True),
+        ('esale_slug', '=', slug),
+        ('esale_active', '=', True),
+        ('esale_saleshops', 'in', SHOPS),
+        ], limit=1)
+
+    product = None
+    if products:
+        product, = products
+
+    if not product:
+        # search product by code
+        products = Product.search([
+            ('template.esale_available', '=', True),
+            ('code', '=', slug),
+            ('template.esale_active', '=', True),
+            ('template.esale_saleshops', 'in', SHOPS),
+            ], limit=1)
+        if products:
+            product = products[0].template
+
+    if not product:
+        abort(404)
+
+    result = {}
+    result['name'] = product.name
+    result['url'] = '%s%s' % (current_app.config['BASE_URL'], url_for(
+        'training.training', lang=g.language, slug=product.esale_slug))
+    result['shortdescription'] = product.esale_shortdescription
+    sessions = []
+    for s in product.training_sessions:
+        session = {}
+        session['start_date'] = s.training_start_date.strftime('%Y-%m-%d')
+        session['end_date'] = s.training_start_date.strftime('%Y-%m-%d')
+        place = s.training_place.rec_name
+        session['place'] = place if place else ''
+        sessions.append(session)
+    result['sessions'] = sessions
+    return jsonify(result)
+
 @training.route("/<slug>", endpoint="training")
 @tryton.transaction()
 def training_detail(lang, slug):
@@ -38,7 +93,6 @@ def training_detail(lang, slug):
     slug param is a product slug or a product code
     '''
     template = request.args.get('template', None)
-    render = request.args.get('render', None)
 
     # template
     if template:
@@ -80,20 +134,6 @@ def training_detail(lang, slug):
 
     if not product:
         abort(404)
-
-    if render == 'json':
-        result = {}
-        for field in TRAINING_TEMPLATE_FIELD_NAMES:
-            result[field] = getattr(product, field)
-        # add sessions (product.product)
-        training_sessions = []
-        for s in product.training_sessions:
-            training_session = {}
-            for field in TRAINING_PRODUCT_FIELD_NAMES:
-                training_session[field] = getattr(s, field)
-            training_sessions.append(session)
-        result['training_sessions'] = training_sessions
-        return jsonify(result)
 
     #breadcumbs
     breadcrumbs = [{
