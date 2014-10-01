@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, current_app, abort, g, \
     request, url_for, session, jsonify
 from galatea.tryton import tryton
 from flask.ext.paginate import Pagination
-from flask.ext.babel import gettext as _, lazy_gettext as __
+from flask.ext.babel import format_date, gettext as _, lazy_gettext as __
+from datetime import datetime
 import os
 
 training = Blueprint('training', __name__, template_folder='templates')
@@ -223,6 +224,99 @@ def training_all(lang):
             products=products,
             domain_filter=domain_filter,
             )
+
+@training.route("/all/<date>", endpoint="trainings_by_date")
+@tryton.transaction()
+def training_list_by_date(lang, date):
+    '''Training Sessions by date'''
+
+    websites = Website.search([
+        ('id', '=', GALATEA_WEBSITE),
+        ], limit=1)
+    if not websites:
+        abort(404)
+    website, = websites
+
+    try:
+        date = datetime.strptime(date, "%Y-%m-%d")
+    except:
+        abort(404)
+
+    # Current training sessions
+    domain = [
+        ('esale_available', '=', True),
+        ('esale_active', '=', True),
+        ('esale_saleshops', 'in', SHOPS),
+        ('training', '=', True),
+        ('training_start_date', '=', date),
+        ]
+    order = [('training_start_date', 'ASC')]
+    products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+
+    templates = []
+    if products:
+        tpls = set()
+        for product in products:
+            tpls.add(product['template'])
+
+        for t in Template.read(list(tpls), fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
+            template = t.copy()
+            sessions = t['training_sessions']
+            if sessions:
+                prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+                template['training_sessions'] = prods # add more info in training sessions field
+            templates.append(template)
+
+    #breadcumbs
+    breadcrumbs = [{
+        'slug': url_for('.trainings', lang=g.language),
+        'name': _('Training'),
+        }, {
+        'slug': url_for('.all', lang=g.language),
+        'name': _('Sessions')+' '+format_date(date, 'short'),
+        }]
+
+    return render_template('trainings-date.html',
+            breadcrumbs=breadcrumbs,
+            website=website,
+            products=templates,
+            date=date,
+            )
+
+@training.route("/trainings.json", endpoint="trainings-json")
+@tryton.transaction()
+def training_json(lang):
+    '''JSON Current Training Sessions'''
+
+    def date_handler(obj):
+        return obj.isoformat() if hasattr(obj, 'isoformat') else obj
+
+    # Current training sessions
+    domain = [
+        ('esale_available', '=', True),
+        ('esale_active', '=', True),
+        ('esale_saleshops', 'in', SHOPS),
+        ('training', '=', True),
+        ('training_start_date', '>=', Date.today()),
+        ]
+    order = [('training_start_date', 'ASC')]
+    products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+
+    results = []
+    for product in products:
+        p = {}
+        p['start_date'] = product['training_start_date'].strftime('%Y-%m-%d')
+        p['end_date'] = product['training_start_date'].strftime('%Y-%m-%d')
+        place = product['training_place.rec_name']
+        p['place'] = place if place else ''
+        template, = Template.read([product['template']],
+            fields_names=TRAINING_TEMPLATE_FIELD_NAMES)
+        p['name'] = template['name']
+        p['url'] = '%s%s' % (current_app.config['BASE_URL'], url_for(
+            'training.training', lang=g.language, slug=template['esale_slug']))
+        p['shortdescription'] = template['esale_shortdescription']
+        results.append(p)
+    return jsonify(results=results)
 
 @training.route("/", endpoint="trainings")
 @tryton.transaction()
