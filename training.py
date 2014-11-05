@@ -4,6 +4,7 @@ from galatea.tryton import tryton
 from galatea.helpers import cached
 from flask.ext.paginate import Pagination
 from flask.ext.babel import format_date, gettext as _, lazy_gettext
+from trytond.transaction import Transaction
 from datetime import datetime
 import os
 
@@ -41,15 +42,17 @@ def training_json(lang):
         return obj.isoformat() if hasattr(obj, 'isoformat') else obj
 
     # Current training sessions
-    domain = [
-        ('esale_available', '=', True),
-        ('esale_active', '=', True),
-        ('esale_saleshops', 'in', SHOPS),
-        ('training', '=', True),
-        ('training_start_date', '>=', Date.today()),
-        ]
-    order = [('training_start_date', 'ASC')]
-    products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+    with Transaction().set_context(without_special_price=True):
+        domain = [
+            ('esale_available', '=', True),
+            ('esale_active', '=', True),
+            ('esale_saleshops', 'in', SHOPS),
+            ('training', '=', True),
+            ('training_start_date', '>=', Date.today()),
+            ]
+        order = [('training_start_date', 'ASC')]
+        products = Product.search_read(domain, order=order,
+            fields_names=TRAINING_PRODUCT_FIELD_NAMES)
 
     results = []
     for product in products:
@@ -82,12 +85,13 @@ def training_detail_json(lang, slug):
         abort(404)
     website, = websites
 
-    products = Template.search([
-        ('esale_available', '=', True),
-        ('esale_slug', '=', slug),
-        ('esale_active', '=', True),
-        ('esale_saleshops', 'in', SHOPS),
-        ], limit=1)
+    with Transaction().set_context(without_special_price=True):
+        products = Template.search([
+            ('esale_available', '=', True),
+            ('esale_slug', '=', slug),
+            ('esale_active', '=', True),
+            ('esale_saleshops', 'in', SHOPS),
+            ], limit=1)
 
     product = None
     if products:
@@ -95,14 +99,15 @@ def training_detail_json(lang, slug):
 
     if not product:
         # search product by code
-        products = Product.search([
-            ('template.esale_available', '=', True),
-            ('code', '=', slug),
-            ('template.esale_active', '=', True),
-            ('template.esale_saleshops', 'in', SHOPS),
-            ], limit=1)
-        if products:
-            product = products[0].template
+        with Transaction().set_context(without_special_price=True):
+            products = Product.search([
+                ('template.esale_available', '=', True),
+                ('code', '=', slug),
+                ('template.esale_active', '=', True),
+                ('template.esale_saleshops', 'in', SHOPS),
+                ], limit=1)
+            if products:
+                product = products[0].template
 
     if not product:
         abort(404)
@@ -148,12 +153,13 @@ def training_detail(lang, slug):
         abort(404)
     website, = websites
 
-    products = Template.search([
-        ('esale_available', '=', True),
-        ('esale_slug', '=', slug),
-        ('esale_active', '=', True),
-        ('esale_saleshops', 'in', SHOPS),
-        ], limit=1)
+    with Transaction().set_context(without_special_price=True):
+        products = Template.search([
+            ('esale_available', '=', True),
+            ('esale_slug', '=', slug),
+            ('esale_active', '=', True),
+            ('esale_saleshops', 'in', SHOPS),
+            ], limit=1)
 
     product = None
     if products:
@@ -161,14 +167,15 @@ def training_detail(lang, slug):
 
     if not product:
         # search product by code
-        products = Product.search([
-            ('template.esale_available', '=', True),
-            ('code', '=', slug),
-            ('template.esale_active', '=', True),
-            ('template.esale_saleshops', 'in', SHOPS),
-            ], limit=1)
-        if products:
-            product = products[0].template
+        with Transaction().set_context(without_special_price=True):
+            products = Product.search([
+                ('template.esale_available', '=', True),
+                ('code', '=', slug),
+                ('template.esale_active', '=', True),
+                ('template.esale_saleshops', 'in', SHOPS),
+                ], limit=1)
+            if products:
+                product = products[0].template
 
     if not product:
         abort(404)
@@ -213,8 +220,10 @@ def keys(lang, key):
     offset = (page-1)*LIMIT
 
     products = []
-    order = [('name', 'ASC')]
-    templates = Template.search_read(domain, offset, LIMIT, order, TRAINING_TEMPLATE_FIELD_NAMES)
+    with Transaction().set_context(without_special_price=True):
+        order = [('name', 'ASC')]
+        templates = Template.search_read(domain, offset, LIMIT, order,
+            TRAINING_TEMPLATE_FIELD_NAMES)
     if not templates:
         abort(404)
 
@@ -277,14 +286,15 @@ def training_all(lang):
     offset = (page-1)*LIMIT
 
     products = []
-    order = [('name', 'ASC')]
-    for t in Template.search_read(domain, offset, LIMIT, order, TRAINING_TEMPLATE_FIELD_NAMES):
-        template = t.copy()
-        sessions = t['training_sessions']
-        if sessions:
-            prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-            template['training_sessions'] = prods # add more info in training sessions field
-        products.append(template)
+    with Transaction().set_context(without_special_price=True):
+        order = [('name', 'ASC')]
+        for t in Template.search_read(domain, offset, LIMIT, order, TRAINING_TEMPLATE_FIELD_NAMES):
+            template = t.copy()
+            sessions = t['training_sessions']
+            if sessions:
+                prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+                template['training_sessions'] = prods # add more info in training sessions field
+            products.append(template)
     pagination = Pagination(page=page, total=total, per_page=LIMIT, display_msg=DISPLAY_MSG, bs_version='3')
 
     #breadcumbs
@@ -321,15 +331,16 @@ def training_list_by_date(lang, date):
         abort(404)
 
     # Current training sessions
-    domain = [
-        ('esale_available', '=', True),
-        ('esale_active', '=', True),
-        ('esale_saleshops', 'in', SHOPS),
-        ('training', '=', True),
-        ('training_start_date', '=', date),
-        ]
-    order = [('training_start_date', 'ASC')]
-    products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+    with Transaction().set_context(without_special_price=True):
+        domain = [
+            ('esale_available', '=', True),
+            ('esale_active', '=', True),
+            ('esale_saleshops', 'in', SHOPS),
+            ('training', '=', True),
+            ('training_start_date', '=', date),
+            ]
+        order = [('training_start_date', 'ASC')]
+        products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
 
     templates = []
     if products:
@@ -337,13 +348,14 @@ def training_list_by_date(lang, date):
         for product in products:
             tpls.add(product['template'])
 
-        for t in Template.read(list(tpls), fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
-            template = t.copy()
-            sessions = t['training_sessions']
-            if sessions:
-                prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-                template['training_sessions'] = prods # add more info in training sessions field
-            templates.append(template)
+        with Transaction().set_context(without_special_price=True):
+            for t in Template.read(list(tpls), fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
+                template = t.copy()
+                sessions = t['training_sessions']
+                if sessions:
+                    prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+                    template['training_sessions'] = prods # add more info in training sessions field
+                templates.append(template)
 
     #breadcumbs
     breadcrumbs = [{
@@ -376,15 +388,16 @@ def training_list(lang):
     domain_filter = session.get('training_filter', [])
 
     # Current training sessions
-    domain = [
-        ('esale_available', '=', True),
-        ('esale_active', '=', True),
-        ('esale_saleshops', 'in', SHOPS),
-        ('training', '=', True),
-        ('training_start_date', '>=', Date.today()),
-        ] + domain_filter
-    order = [('training_start_date', 'ASC')]
-    products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+    with Transaction().set_context(without_special_price=True):
+        domain = [
+            ('esale_available', '=', True),
+            ('esale_active', '=', True),
+            ('esale_saleshops', 'in', SHOPS),
+            ('training', '=', True),
+            ('training_start_date', '>=', Date.today()),
+            ] + domain_filter
+        order = [('training_start_date', 'ASC')]
+        products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
 
     templates = []
     if products:
@@ -392,13 +405,14 @@ def training_list(lang):
         for product in products:
             tpls.add(product['template'])
 
-        for t in Template.read(list(tpls), fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
-            template = t.copy()
-            sessions = t['training_sessions']
-            if sessions:
-                prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-                template['training_sessions'] = prods # add more info in training sessions field
-            templates.append(template)
+        with Transaction().set_context(without_special_price=True):
+            for t in Template.read(list(tpls), fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
+                template = t.copy()
+                sessions = t['training_sessions']
+                if sessions:
+                    prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+                    template['training_sessions'] = prods # add more info in training sessions field
+                templates.append(template)
 
     #breadcumbs
     breadcrumbs = [{
