@@ -31,6 +31,7 @@ TRAINING_PRODUCT_FIELD_NAMES = [
     'training_place.rec_name', 'training_seats', 'training_note', 'template',
     'add_cart',
     ]
+TRAINING_TEMPLATE_FILTERS = []
 
 @training.route("/json/trainings", endpoint="trainings-json")
 @tryton.transaction()
@@ -268,7 +269,8 @@ def training_all(lang):
         domain_filter = []
         domain_filter_keys = set()
         for k, v in request.form.iteritems():
-            domain_filter_keys.add(k)
+            if k in TRAINING_TEMPLATE_FILTERS:
+                domain_filter_keys.add(k)
 
         for k in list(domain_filter_keys):
             domain_filter.append((k, 'in', request.form.getlist(k)))
@@ -310,7 +312,6 @@ def training_all(lang):
             breadcrumbs=breadcrumbs,
             pagination=pagination,
             products=products,
-            domain_filter=domain_filter,
             )
 
 @training.route("/all/<date>", endpoint="trainings_by_date")
@@ -373,7 +374,7 @@ def training_list_by_date(lang, date):
             date=date,
             )
 
-@training.route("/", endpoint="trainings")
+@training.route("/", methods=["GET", "POST"], endpoint="trainings")
 @tryton.transaction()
 def training_list(lang):
     '''Current Training Sessions'''
@@ -386,6 +387,17 @@ def training_list(lang):
     website, = websites
 
     domain_filter = session.get('training_filter', [])
+    if request.form:
+        domain_filter = []
+        domain_filter_keys = set()
+        for k, v in request.form.iteritems():
+            if k in TRAINING_TEMPLATE_FILTERS:
+                domain_filter_keys.add(k)
+
+        for k in list(domain_filter_keys):
+            domain_filter.append((k, 'in', request.form.getlist(k)))
+
+    session['training_filter'] = domain_filter
 
     # Current training sessions
     with Transaction().set_context(without_special_price=True):
