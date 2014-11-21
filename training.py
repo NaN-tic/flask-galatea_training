@@ -92,6 +92,7 @@ def training_detail_json(lang, slug):
             ('esale_slug', '=', slug),
             ('esale_active', '=', True),
             ('esale_saleshops', 'in', SHOPS),
+            ('training', '=', True),
             ], limit=1)
 
     product = None
@@ -160,6 +161,7 @@ def training_detail(lang, slug):
             ('esale_slug', '=', slug),
             ('esale_active', '=', True),
             ('esale_saleshops', 'in', SHOPS),
+            ('training', '=', True),
             ], limit=1)
 
     product = None
