@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, current_app, abort, g, \
-    request, url_for, session, jsonify
+    request, url_for, session, jsonify, flash
 from galatea.tryton import tryton
 from galatea.helpers import cached
 from flask.ext.paginate import Pagination
@@ -285,6 +285,18 @@ def training_all(lang):
         ('esale_saleshops', 'in', SHOPS),
         ('training', '=', True),
         ] + domain_filter
+
+    # Search
+    if request.args.get('q'):
+        qstr = request.args.get('q')
+        q = '%' + qstr + '%'
+        domain.append(
+            ('rec_name', 'ilike', q),
+            )
+        session.q = qstr
+        flash(_("Your search is \"%s\"." % qstr))
+    else:
+        session.q = None
 
     total = Template.search_count(domain)
     offset = (page-1)*LIMIT
