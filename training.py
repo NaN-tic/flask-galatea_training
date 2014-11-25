@@ -45,6 +45,7 @@ def training_json(lang):
     # Current training sessions
     with Transaction().set_context(without_special_price=True):
         domain = [
+            ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_active', '=', True),
             ('esale_saleshops', 'in', SHOPS),
@@ -88,6 +89,7 @@ def training_detail_json(lang, slug):
 
     with Transaction().set_context(without_special_price=True):
         products = Template.search([
+            ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_slug', '=', slug),
             ('esale_active', '=', True),
@@ -157,6 +159,7 @@ def training_detail(lang, slug):
 
     with Transaction().set_context(without_special_price=True):
         products = Template.search([
+            ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_slug', '=', slug),
             ('esale_active', '=', True),
@@ -212,6 +215,7 @@ def keys(lang, key):
         page = 1
 
     domain = [
+        ('salable', '=', True),
         ('esale_available', '=', True),
         ('esale_active', '=', True),
         ('esale_saleshops', 'in', SHOPS),
@@ -280,6 +284,7 @@ def training_all(lang):
     session['training_filter'] = domain_filter
 
     domain = [
+        ('salable', '=', True),
         ('esale_available', '=', True),
         ('esale_active', '=', True),
         ('esale_saleshops', 'in', SHOPS),
@@ -348,6 +353,7 @@ def training_list_by_date(lang, date):
     # Current training sessions
     with Transaction().set_context(without_special_price=True):
         domain = [
+            ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_active', '=', True),
             ('esale_saleshops', 'in', SHOPS),
@@ -416,6 +422,7 @@ def training_list(lang):
     # Current training sessions
     with Transaction().set_context(without_special_price=True):
         domain = [
+            ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_active', '=', True),
             ('esale_saleshops', 'in', SHOPS),
