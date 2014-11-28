@@ -1,10 +1,14 @@
 from flask import Blueprint, render_template, current_app, abort, g, \
     request, url_for, session, jsonify, flash
 from galatea.tryton import tryton
+from galatea.utils import get_tryton_language
 from galatea.helpers import cached
 from flask.ext.paginate import Pagination
 from flask.ext.babel import format_date, gettext as _, lazy_gettext
 from trytond.transaction import Transaction
+from trytond.config import config as tryton_config
+from whoosh import index
+from whoosh.qparser import MultifieldParser
 from datetime import datetime
 import os
 
@@ -15,6 +19,7 @@ DISPLAY_MSG = lazy_gettext('Displaying <b>{start} - {end}</b> of <b>{total}</b>'
 GALATEA_WEBSITE = current_app.config.get('TRYTON_GALATEA_SITE')
 SHOPS = current_app.config.get('TRYTON_SALE_SHOPS')
 LIMIT = current_app.config.get('TRYTON_PAGINATION_CATALOG_LIMIT', 20)
+WHOOSH_MAX_LIMIT = current_app.config.get('WHOOSH_MAX_LIMIT', 500)
 
 Website = tryton.pool.get('galatea.website')
 Template = tryton.pool.get('product.template')
@@ -32,6 +37,7 @@ TRAINING_PRODUCT_FIELD_NAMES = [
     'add_cart',
     ]
 TRAINING_TEMPLATE_FILTERS = []
+TRAINING_SCHEMA_PARSE_FIELDS = ['title', 'content']
 
 @training.route("/json/trainings", endpoint="trainings-json")
 @tryton.transaction()
@@ -131,6 +137,82 @@ def training_detail_json(lang, slug):
         tsessions.append(tsession)
     result['sessions'] = tsessions
     return jsonify(result)
+
+@training.route("/search/", methods=["GET"], endpoint="search")
+@tryton.transaction()
+def search(lang):
+    '''Search'''
+    WHOOSH_TRAINING_DIR = current_app.config.get('WHOOSH_TRAINING_DIR')
+    if not WHOOSH_TRAINING_DIR:
+        abort(404)
+
+    db_name = current_app.config.get('TRYTON_DATABASE')
+    locale = get_tryton_language(lang)
+
+    schema_dir = os.path.join(tryton_config.get('database', 'path'),
+        db_name, 'whoosh', WHOOSH_TRAINING_DIR, locale.lower())
+
+    if not os.path.exists(schema_dir):
+        abort(404)
+
+    #breadcumbs
+    breadcrumbs = [{
+        'slug': url_for('.all', lang=g.language),
+        'name': _('Training'),
+        }, {
+        'slug': url_for('.search', lang=g.language),
+        'name': _('Search'),
+        }]
+
+    q = request.args.get('q')
+    if not q:
+        return render_template('training-search.html',
+                products=[],
+                breadcrumbs=breadcrumbs,
+                pagination=None,
+                q=None,
+                )
+
+    # Get products from schema results
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+
+    # Search
+    ix = index.open_dir(schema_dir)
+    query = q.replace('+', ' AND ').replace('-', ' NOT ')
+    query = MultifieldParser(TRAINING_SCHEMA_PARSE_FIELDS, ix.schema).parse(query)
+
+    with ix.searcher() as s:
+        all_results = s.search_page(query, 1, pagelen=WHOOSH_MAX_LIMIT)
+        total = all_results.scored_length()
+        results = s.search_page(query, page, pagelen=LIMIT) # by pagination
+        res = [result.get('id') for result in results]
+
+    domain = [('id', 'in', res)]
+    order = [('name', 'ASC')]
+
+    products = []
+    with Transaction().set_context(without_special_price=True):
+        order = [('name', 'ASC')]
+        for t in Template.search_read(domain, order=order,
+                fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
+            template = t.copy()
+            sessions = t['training_sessions']
+            if sessions:
+                prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+                template['training_sessions'] = prods # add more info in training sessions field
+            products.append(template)
+
+    pagination = Pagination(page=page, total=total, per_page=LIMIT, display_msg=DISPLAY_MSG, bs_version='3')
+
+    return render_template('training-search.html',
+            products=products,
+            pagination=pagination,
+            breadcrumbs=breadcrumbs,
+            q=q,
+            )
 
 @training.route("/<slug>", endpoint="training")
 @tryton.transaction()
