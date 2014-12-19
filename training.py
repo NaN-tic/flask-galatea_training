@@ -86,13 +86,6 @@ def training_detail_json(lang, slug):
 
     slug param is a product slug or a product code
     '''
-    websites = Website.search([
-        ('id', '=', GALATEA_WEBSITE),
-        ], limit=1)
-    if not websites:
-        abort(404)
-    website, = websites
-
     with Transaction().set_context(without_special_price=True):
         products = Template.search([
             ('salable', '=', True),
@@ -142,6 +135,13 @@ def training_detail_json(lang, slug):
 @tryton.transaction()
 def search(lang):
     '''Search'''
+    websites = Website.search([
+        ('id', '=', GALATEA_WEBSITE),
+        ], limit=1)
+    if not websites:
+        abort(404)
+    website, = websites
+
     WHOOSH_TRAINING_DIR = current_app.config.get('WHOOSH_TRAINING_DIR')
     if not WHOOSH_TRAINING_DIR:
         abort(404)
@@ -167,6 +167,7 @@ def search(lang):
     q = request.args.get('q')
     if not q:
         return render_template('training-search.html',
+                webiste=website,
                 products=[],
                 breadcrumbs=breadcrumbs,
                 pagination=None,
@@ -208,6 +209,7 @@ def search(lang):
     pagination = Pagination(page=page, total=total, per_page=LIMIT, display_msg=DISPLAY_MSG, bs_version='3')
 
     return render_template('training-search.html',
+            website=website,
             products=products,
             pagination=pagination,
             breadcrumbs=breadcrumbs,
@@ -221,9 +223,15 @@ def training_detail(lang, slug):
 
     slug param is a product slug or a product code
     '''
-    template = request.args.get('template', None)
+    websites = Website.search([
+        ('id', '=', GALATEA_WEBSITE),
+        ], limit=1)
+    if not websites:
+        abort(404)
+    website, = websites
 
     # template
+    template = request.args.get('template', None)
     if template:
         blueprintdir = os.path.dirname(__file__)
         basedir = '/'.join(blueprintdir.split('/')[:-1])
@@ -231,13 +239,6 @@ def training_detail(lang, slug):
             template = None
     if not template:
         template = 'training'
-
-    websites = Website.search([
-        ('id', '=', GALATEA_WEBSITE),
-        ], limit=1)
-    if not websites:
-        abort(404)
-    website, = websites
 
     with Transaction().set_context(without_special_price=True):
         products = Template.search([
@@ -281,8 +282,8 @@ def training_detail(lang, slug):
         }]
 
     return render_template('%s.html' % template,
-            breadcrumbs=breadcrumbs,
             website=website,
+            breadcrumbs=breadcrumbs,
             product=product,
             )
 
@@ -290,6 +291,12 @@ def training_detail(lang, slug):
 @tryton.transaction()
 def keys(lang, key):
     '''Training by Key'''
+    websites = Website.search([
+        ('id', '=', GALATEA_WEBSITE),
+        ], limit=1)
+    if not websites:
+        abort(404)
+    website, = websites
 
     try:
         page = int(request.args.get('page', 1))
@@ -336,6 +343,7 @@ def keys(lang, key):
         }]
 
     return render_template('trainings-key.html',
+            website=website,
             breadcrumbs=breadcrumbs,
             pagination=pagination,
             products=products,
@@ -346,6 +354,12 @@ def keys(lang, key):
 @tryton.transaction()
 def training_all(lang):
     '''All Training'''
+    websites = Website.search([
+        ('id', '=', GALATEA_WEBSITE),
+        ], limit=1)
+    if not websites:
+        abort(404)
+    website, = websites
 
     try:
         page = int(request.args.get('page', 1))
@@ -410,6 +424,7 @@ def training_all(lang):
         }]
 
     return render_template('trainings-all.html',
+            website=website,
             breadcrumbs=breadcrumbs,
             pagination=pagination,
             products=products,
@@ -419,7 +434,6 @@ def training_all(lang):
 @tryton.transaction()
 def training_list_by_date(lang, date):
     '''Training Sessions by date'''
-
     websites = Website.search([
         ('id', '=', GALATEA_WEBSITE),
         ], limit=1)
@@ -470,8 +484,8 @@ def training_list_by_date(lang, date):
         }]
 
     return render_template('trainings-date.html',
-            breadcrumbs=breadcrumbs,
             website=website,
+            breadcrumbs=breadcrumbs,
             products=templates,
             date=date,
             )
@@ -480,7 +494,6 @@ def training_list_by_date(lang, date):
 @tryton.transaction()
 def training_list(lang):
     '''Current Training Sessions'''
-
     websites = Website.search([
         ('id', '=', GALATEA_WEBSITE),
         ], limit=1)
@@ -536,7 +549,7 @@ def training_list(lang):
         }]
 
     return render_template('trainings.html',
-            breadcrumbs=breadcrumbs,
             website=website,
+            breadcrumbs=breadcrumbs,
             products=templates,
             )
