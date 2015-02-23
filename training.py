@@ -26,16 +26,6 @@ Template = tryton.pool.get('product.template')
 Product = tryton.pool.get('product.product')
 Date = tryton.pool.get('ir.date')
 
-TRAINING_TEMPLATE_FIELD_NAMES = [
-    'name', 'esale_slug', 'esale_shortdescription', 'esale_price',
-    'esale_default_images', 'esale_all_images', 'esale_new', 'esale_hot',
-    'esale_metakeyword', 'training_sessions',
-    ]
-TRAINING_PRODUCT_FIELD_NAMES = [
-    'training_start_date', 'training_end_date', 'training_registration',
-    'training_place.rec_name', 'training_seats', 'training_note', 'template',
-    'add_cart', 'esale_quantity',
-    ]
 TRAINING_TEMPLATE_FILTERS = []
 TRAINING_SCHEMA_PARSE_FIELDS = ['title', 'content']
 
@@ -59,22 +49,21 @@ def training_json(lang):
             ('training_start_date', '>=', Date.today()),
             ]
         order = [('training_start_date', 'ASC')]
-        products = Product.search_read(domain, order=order,
-            fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+        products = Product.search(domain, order=order)
 
     results = []
     for product in products:
         p = {}
-        p['start_date'] = product['training_start_date'].strftime('%Y-%m-%d')
-        p['end_date'] = product['training_start_date'].strftime('%Y-%m-%d')
-        place = product['training_place.rec_name']
-        p['place'] = place if place else ''
-        template, = Template.read([product['template']],
-            fields_names=TRAINING_TEMPLATE_FIELD_NAMES)
-        p['name'] = template['name']
+        p['start_date'] = product.training_start_date.strftime('%Y-%m-%d') \
+                if product.training_start_date else ''
+        p['end_date'] = product.training_end_date.strftime('%Y-%m-%d') \
+                if product.training_end_date else ''
+        p['place'] = product.training_place.rec_name \
+                if product.training_place else ''
+        p['name'] = product.template.name
         p['url'] = '%s%s' % (current_app.config['BASE_URL'], url_for(
-            'training.training', lang=g.language, slug=template['esale_slug']))
-        p['shortdescription'] = template['esale_shortdescription']
+            'training.training', lang=g.language, slug=product.template.esale_slug))
+        p['shortdescription'] = product.template.esale_shortdescription
         results.append(p)
     return jsonify(results=results)
 
@@ -123,10 +112,12 @@ def training_detail_json(lang, slug):
     tsessions = []
     for s in product.training_sessions:
         tsession = {}
-        tsession['start_date'] = s.training_start_date.strftime('%Y-%m-%d')
-        tsession['end_date'] = s.training_start_date.strftime('%Y-%m-%d')
-        place = s.training_place.rec_name
-        tsession['place'] = place if place else ''
+        tsession['start_date'] = s.training_start_date.strftime('%Y-%m-%d') \
+                if s.training_start_date else ''
+        tsession['end_date'] = s.training_end_date.strftime('%Y-%m-%d') \
+                if s.training_end_date else ''
+        tsession['place'] =  s.training_place.rec_name \
+                if product.training_place else ''
         tsessions.append(tsession)
     result['sessions'] = tsessions
     return jsonify(result)
@@ -197,14 +188,7 @@ def search(lang):
     products = []
     with Transaction().set_context(without_special_price=True):
         order = [('name', 'ASC')]
-        for t in Template.search_read(domain, order=order,
-                fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
-            template = t.copy()
-            sessions = t['training_sessions']
-            if sessions:
-                prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-                template['training_sessions'] = prods # add more info in training sessions field
-            products.append(template)
+        products = Template.search(domain, order=order)
 
     pagination = Pagination(page=page, total=total, per_page=LIMIT, display_msg=DISPLAY_MSG, bs_version='3')
 
@@ -315,21 +299,11 @@ def keys(lang, key):
 
     offset = (page-1)*LIMIT
 
-    products = []
     with Transaction().set_context(without_special_price=True):
         order = [('name', 'ASC')]
-        templates = Template.search_read(domain, offset, LIMIT, order,
-            TRAINING_TEMPLATE_FIELD_NAMES)
-    if not templates:
+        products = Template.search(domain, offset, LIMIT, order)
+    if not products:
         abort(404)
-
-    for t in templates:
-        template = t.copy()
-        sessions = t['training_sessions']
-        if sessions:
-            prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-            template['training_sessions'] = prods # add more info in training sessions field
-        products.append(template)
 
     pagination = Pagination(page=page, total=total, per_page=LIMIT, display_msg=DISPLAY_MSG, bs_version='3')
 
@@ -402,16 +376,10 @@ def training_all(lang):
     total = Template.search_count(domain)
     offset = (page-1)*LIMIT
 
-    products = []
     with Transaction().set_context(without_special_price=True):
         order = [('name', 'ASC')]
-        for t in Template.search_read(domain, offset, LIMIT, order, TRAINING_TEMPLATE_FIELD_NAMES):
-            template = t.copy()
-            sessions = t['training_sessions']
-            if sessions:
-                prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-                template['training_sessions'] = prods # add more info in training sessions field
-            products.append(template)
+        products = Template.search(domain, offset, LIMIT, order)
+
     pagination = Pagination(page=page, total=total, per_page=LIMIT, display_msg=DISPLAY_MSG, bs_version='3')
 
     #breadcumbs
@@ -457,22 +425,12 @@ def training_list_by_date(lang, date):
             ('training_start_date', '=', date),
             ]
         order = [('training_start_date', 'ASC')]
-        products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+        prods = Product.search(domain, order=order)
 
-    templates = []
-    if products:
-        tpls = set()
-        for product in products:
-            tpls.add(product['template'])
+    tpls = list({p.template.id for p in prods})
 
-        with Transaction().set_context(without_special_price=True):
-            for t in Template.read(list(tpls), fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
-                template = t.copy()
-                sessions = t['training_sessions']
-                if sessions:
-                    prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-                    template['training_sessions'] = prods # add more info in training sessions field
-                templates.append(template)
+    with Transaction().set_context(without_special_price=True):
+        products = Template.browse(tpls)
 
     #breadcumbs
     breadcrumbs = [{
@@ -486,7 +444,7 @@ def training_list_by_date(lang, date):
     return render_template('trainings-date.html',
             website=website,
             breadcrumbs=breadcrumbs,
-            products=templates,
+            products=products,
             date=date,
             )
 
@@ -525,22 +483,12 @@ def training_list(lang):
             ('training_start_date', '>=', Date.today()),
             ] + domain_filter
         order = [('training_start_date', 'ASC')]
-        products = Product.search_read(domain, order=order, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
+        prods = Product.search(domain, order=order)
 
-    templates = []
-    if products:
-        tpls = set()
-        for product in products:
-            tpls.add(product['template'])
+    tpls = list({p.template.id for p in prods})
 
-        with Transaction().set_context(without_special_price=True):
-            for t in Template.read(list(tpls), fields_names=TRAINING_TEMPLATE_FIELD_NAMES):
-                template = t.copy()
-                sessions = t['training_sessions']
-                if sessions:
-                    prods = Product.read(sessions, fields_names=TRAINING_PRODUCT_FIELD_NAMES)
-                    template['training_sessions'] = prods # add more info in training sessions field
-                templates.append(template)
+    with Transaction().set_context(without_special_price=True):
+        products = Template.browse(tpls)
 
     #breadcumbs
     breadcrumbs = [{
@@ -551,5 +499,5 @@ def training_list(lang):
     return render_template('trainings.html',
             website=website,
             breadcrumbs=breadcrumbs,
-            products=templates,
+            products=products,
             )
