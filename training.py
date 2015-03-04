@@ -427,7 +427,11 @@ def training_list_by_date(lang, date):
         order = [('training_start_date', 'ASC')]
         prods = Product.search(domain, order=order)
 
-    tpls = list({p.template.id for p in prods})
+    tpls = []
+    for p in prods:
+        if not p.template.id in tpls:
+            tpls.insert(0, p.template.id)
+    tpls.reverse()
 
     with Transaction().set_context(without_special_price=True):
         products = Template.browse(tpls)
@@ -485,7 +489,11 @@ def training_list(lang):
         order = [('training_start_date', 'ASC')]
         prods = Product.search(domain, order=order)
 
-    tpls = list({p.template.id for p in prods})
+    tpls = []
+    for p in prods:
+        if not p.template.id in tpls:
+            tpls.insert(0, p.template.id)
+    tpls.reverse()
 
     with Transaction().set_context(without_special_price=True):
         products = Template.browse(tpls)
