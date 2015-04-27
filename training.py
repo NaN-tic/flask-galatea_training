@@ -44,7 +44,7 @@ def training_json(lang):
             ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_active', '=', True),
-            ('esale_saleshops', 'in', SHOPS),
+            ('shops', 'in', SHOPS),
             ('training', '=', True),
             ('training_start_date', '>=', Date.today()),
             ]
@@ -81,7 +81,7 @@ def training_detail_json(lang, slug):
             ('esale_available', '=', True),
             ('esale_slug', '=', slug),
             ('esale_active', '=', True),
-            ('esale_saleshops', 'in', SHOPS),
+            ('shops', 'in', SHOPS),
             ('training', '=', True),
             ], limit=1)
 
@@ -96,7 +96,7 @@ def training_detail_json(lang, slug):
                 ('template.esale_available', '=', True),
                 ('code', '=', slug),
                 ('template.esale_active', '=', True),
-                ('template.esale_saleshops', 'in', SHOPS),
+                ('template.shops', 'in', SHOPS),
                 ], limit=1)
             if products:
                 product = products[0].template
@@ -230,7 +230,7 @@ def training_detail(lang, slug):
             ('esale_available', '=', True),
             ('esale_slug', '=', slug),
             ('esale_active', '=', True),
-            ('esale_saleshops', 'in', SHOPS),
+            ('shops', 'in', SHOPS),
             ('training', '=', True),
             ], limit=1)
 
@@ -245,7 +245,7 @@ def training_detail(lang, slug):
                 ('template.esale_available', '=', True),
                 ('code', '=', slug),
                 ('template.esale_active', '=', True),
-                ('template.esale_saleshops', 'in', SHOPS),
+                ('template.shops', 'in', SHOPS),
                 ], limit=1)
             if products:
                 product = products[0].template
@@ -291,7 +291,7 @@ def keys(lang, key):
         ('salable', '=', True),
         ('esale_available', '=', True),
         ('esale_active', '=', True),
-        ('esale_saleshops', 'in', SHOPS),
+        ('shops', 'in', SHOPS),
         ('training', '=', True),
         ('esale_metakeyword', 'ilike', '%'+key+'%'),
         ]
@@ -357,7 +357,7 @@ def training_all(lang):
         ('salable', '=', True),
         ('esale_available', '=', True),
         ('esale_active', '=', True),
-        ('esale_saleshops', 'in', SHOPS),
+        ('shops', 'in', SHOPS),
         ('training', '=', True),
         ] + domain_filter
 
@@ -420,7 +420,7 @@ def training_list_by_date(lang, date):
             ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_active', '=', True),
-            ('esale_saleshops', 'in', SHOPS),
+            ('shops', 'in', SHOPS),
             ('training', '=', True),
             ('training_start_date', '=', date),
             ]
@@ -482,7 +482,7 @@ def training_list(lang):
             ('salable', '=', True),
             ('esale_available', '=', True),
             ('esale_active', '=', True),
-            ('esale_saleshops', 'in', SHOPS),
+            ('shops', 'in', SHOPS),
             ('training', '=', True),
             ('training_start_date', '>=', Date.today()),
             ] + domain_filter
